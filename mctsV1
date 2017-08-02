@@ -1,0 +1,807 @@
+
+    //-----------------------------------MCTS--------------------------------------
+
+    public class Move
+    {
+        int x;
+
+        public Move()
+        {
+
+        }
+
+        public Move(int x_)
+        {
+            x = x_;
+        }
+
+        public int getX()
+        {
+            return x;
+        }
+
+        public override int GetHashCode()
+        {
+            return x;
+        }
+    }
+
+    public class Board
+    {
+        public const int IN_PROGRESS = -1;
+        public const int DRAW = 0;
+        public const int P1 = 1;
+        public const int P2 = 2;
+
+        public const int W_BOARD_SIZE = 7;
+        public const int H_BOARD_SIZE = 6;
+        public int BLANK = 10000;
+
+        public int[] columns;
+        public int[][] grid = new int[H_BOARD_SIZE][];
+
+        public Move lastMove;
+        public int lastP = -1;
+
+        private int hashValue;
+
+
+        public Board()
+        {
+            hashValue = -1;
+
+            columns = new int[W_BOARD_SIZE];
+            for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+            {
+                columns[ii] = 0;
+            }
+
+
+            for (int i = 0; i < H_BOARD_SIZE; ++i)
+            {
+                grid[i] = new int[W_BOARD_SIZE];
+
+                for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+                {
+                    grid[i][ii] = BLANK;
+                }
+            }
+
+            lastMove = new Move(0);
+            lastP = -1;
+        }
+
+        public Board(Board b)
+        {
+            hashValue = b.GetHashCode();
+
+            columns = new int[W_BOARD_SIZE];
+            for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+            {
+                columns[ii] = b.columns[ii];
+            }
+
+            for (int i = 0; i < H_BOARD_SIZE; ++i)
+            {
+                grid[i] = new int[W_BOARD_SIZE];
+                for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+                {
+                    grid[i][ii] = b.grid[i][ii];
+                }
+            }
+
+            lastMove = new Move(b.lastMove.getX());
+            lastP = b.lastP;
+
+        }
+
+        public void reset()
+        {
+            for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+            {
+                columns[ii] = 0;
+            }
+
+            for (int i = 0; i < H_BOARD_SIZE; ++i)
+            {
+                grid[i] = new int[W_BOARD_SIZE];
+
+                for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+                {
+                    grid[i][ii] = BLANK;
+                }
+            }
+
+            lastP = -1;
+            lastMove = new Move(0);
+        }
+
+        public void performMove(int player, Move move)
+        {
+            if (columns[move.getX()] != H_BOARD_SIZE)
+            {
+                grid[columns[move.getX()]][move.getX()] = player;
+                columns[move.getX()]++;
+
+            }
+
+            lastMove = new Move(move.getX());
+            lastP = player;
+
+            hashValue = move.GetHashCode();
+
+        }
+
+        public int checkStatus()
+        {
+
+            int X = lastMove.getX();
+            int Y = columns[X] - 1;
+
+            int score = 0;
+            score += traverse(X, Y, 0, 1, lastP);
+            score += traverse(X, Y, 0, -1, lastP);
+
+            if (score >= 3)
+                return lastP;
+
+            score = 0;
+            score += traverse(X, Y, 1, 0, lastP);
+            score += traverse(X, Y, -1, 0, lastP);
+
+            if (score >= 3)
+                return lastP;
+
+            score = 0;
+            score += traverse(X, Y, 1, 1, lastP);
+            score += traverse(X, Y, -1, -1, lastP);
+
+            if (score >= 3)
+                return lastP;
+
+            score = 0;
+            score += traverse(X, Y, 1, -1, lastP);
+            score += traverse(X, Y, -1, 1, lastP);
+
+            if (score >= 3)
+                return lastP;
+
+            if (boardFull())
+                return DRAW;
+
+            return IN_PROGRESS;
+        }
+
+        public int traverse(int x, int y, int dY, int dX, int player)
+        {
+            int newX = x + dX;
+            int newY = y + dY;
+
+            if (newX <= -1 || newX == W_BOARD_SIZE)
+                return 0;
+            if (newY <= -1 || newY == H_BOARD_SIZE)
+                return 0;
+
+            if (grid[newY][newX] == player)
+            {
+                return 1 + traverse(newX, newY, dY, dX, player);
+            }
+
+            return 0;
+        }
+
+        public List<Move> getPossibleMoves()
+        {
+            List<Move> moves = new List<Move>();
+
+            for (int i = 0; i < W_BOARD_SIZE; ++i)
+            {
+
+                if (columns[i] != H_BOARD_SIZE)
+                {
+                    moves.Add(new Move(i));
+                }
+
+            }
+
+            return moves;
+        }
+
+        public bool boardFull()
+        {
+            for (int i = 0; i < H_BOARD_SIZE; ++i)
+            {
+                if (columns[i] != H_BOARD_SIZE) return false;
+            }
+
+            return true;
+        }
+
+        public override int GetHashCode()
+        {
+            return hashValue;
+        }
+
+        public void debugColumns()
+        {
+            for (int i = 0; i < W_BOARD_SIZE; ++i)
+            {
+                Console.WriteLine("COLUMN AMOUNT " + columns[i]);
+            }
+
+        }
+
+        public void debugBoard(int extraSpace = 0)
+        {
+            //   Console.WriteLine("Debugging Board-------------------------------------------------------------------");
+
+            for (int i = H_BOARD_SIZE - 1; i > -1; --i)
+            {
+
+
+                for (int a = 0; a < extraSpace; a++) Console.Write(" ");
+                Console.Write("|");
+                for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+                {
+                    char a = grid[i][ii] == Board.P1 ? 'O' : 'X';
+
+                    if (grid[i][ii] == BLANK) Console.Write(" |");
+                    else Console.Write(a + "|");
+                }
+                Console.WriteLine();
+            }
+        }
+    }
+
+    public class State
+    {
+        Board board;
+        int playerNo;
+        int visitC;
+        double winScore;
+        Random rnd;
+
+        public State()
+        {
+            board = new Board();
+            playerNo = -1;
+            visitC = 0;
+            winScore = 0.0;
+            rnd = new Random();
+
+        }
+
+        public State(State s)
+        {
+            board = new Board(s.getBoard());
+            playerNo = s.getPlayerNo();
+            visitC = s.getVisitCount();
+            winScore = s.getWinScore();
+            rnd = new Random();
+
+        }
+
+        public State(Board b)
+        {
+            playerNo = -1;
+            visitC = 0;
+            winScore = 0.0;
+            board = new Board(b);
+            rnd = new Random();
+
+        }
+
+        public void randomPlay()
+        {
+
+            List<Move> possibleMoves = board.getPossibleMoves();
+            int totalMoves = possibleMoves.Count;
+            board.performMove(playerNo, possibleMoves[rnd.Next(totalMoves)]);
+
+        }
+
+        public List<State> getAllPossibleStates()
+        {
+            List<State> states = new List<State>();
+
+            List<Move> moves = new List<Move>();
+
+            moves = board.getPossibleMoves();
+
+            foreach (Move move in moves)
+            {
+                State newState = new State(board);
+
+                newState.setPlayerNo(playerNo);
+                newState.togglePlayer();
+                newState.getBoard().performMove(newState.getPlayerNo(), move);
+
+                states.Add(newState);
+            }
+
+
+            return states;
+        }
+
+        public List<Move> getAllPossibleMoves()
+        {
+            if (getBoard().checkStatus() != Board.IN_PROGRESS) return null;
+
+            return board.getPossibleMoves();
+        }
+
+        public Board getBoard()
+        {
+            return board;
+        }
+
+        public override int GetHashCode()
+        {
+            return getBoard().GetHashCode();
+        }
+
+
+        public double getWinScore()
+        {
+            return winScore;
+        }
+
+        public int getVisitCount()
+        {
+            return visitC;
+        }
+
+        public int getPlayerNo()
+        {
+            return playerNo;
+        }
+
+        public void setWinScore(int score)
+        {
+            winScore = score;
+        }
+
+        public void setBoard(Board gameS)
+        {
+            board = gameS;
+        }
+
+        public void setPlayerNo(int playerNoo)
+        {
+            playerNo = playerNoo;
+        }
+
+        public int getOpponent()
+        {
+            return 3 - playerNo;
+        }
+
+        public void incrementVisit()
+        {
+            visitC++;
+        }
+
+        public void togglePlayer()
+        {
+            playerNo = 3 - playerNo;
+        }
+
+        public void addScore(double score)
+        {
+            if (int.MinValue != winScore)
+                winScore += score;
+
+        }
+    }
+
+    public class Node
+    {
+        State state;
+        Node parent;
+        Dictionary<int, Node> childs;
+
+        public Node()
+        {
+            parent = null;
+            state = new State();
+            childs = new Dictionary<int, Node>();
+        }
+
+        public Node(Node n)
+        {
+            if (n.getParent() != null)
+                parent = n.getParent();
+
+            state = new State(n.getState());
+
+            childs = new Dictionary<int, Node>();
+
+        }
+
+        public Node(State s, Node p = null)
+        {
+            childs = new Dictionary<int, Node>();
+            parent = p;
+            state = new State(s);
+        }
+
+        public void setParent(Node p)
+        {
+            parent = p;
+        }
+
+        public Node getParent()
+        {
+            return parent;
+        }
+
+        public Dictionary<int, Node> getChilds()
+        {
+            return childs;
+        }
+
+
+        public State getState()
+        {
+            return state;
+        }
+
+        public Node getMaxScoreChild()
+        {
+            Node bestNode = null;
+
+            int mostVisits = -1;
+
+
+            bool first = true;
+
+            foreach (Node node in childs.Values)
+            {
+
+                if (node.getState().getVisitCount() > mostVisits || first == true)
+                {
+                    mostVisits = node.getState().getVisitCount();
+                    bestNode = node;
+                    first = false;
+                }
+            }
+
+
+
+            return bestNode;
+        }
+
+        public override int GetHashCode()
+        {
+            return state.GetHashCode();
+        }
+    }
+
+    public class Tree
+    {
+        Node root;
+
+        public Tree()
+        {
+            root = new Node();
+        }
+
+        public Tree(Node root_)
+        {
+            root = root_;
+        }
+
+        public Node getRoot()
+        {
+            return root;
+        }
+
+        public void setRoot(Node n)
+        {
+            root = n;
+        }
+
+        public void addChild(Node p, Move move)
+        {
+            State newState = new State(p.getState().getBoard());
+            newState.setPlayerNo(p.getState().getPlayerNo());
+            newState.togglePlayer();
+
+            newState.getBoard().performMove(newState.getPlayerNo(), move);
+
+            // newState.getBoard().debugBoard();
+            Node child = new Node(newState, p);
+
+            p.getChilds().Add(child.GetHashCode(), child);
+        }
+
+    }
+
+
+
+
+
+
+    public class MonteCarloTreeSearch
+    {
+        const int WIN_SCORE = 1;
+        int opponent;
+        int iterations;
+        public Stopwatch timer = new Stopwatch();
+        Tree tree;
+        long time;
+        int it = 0;
+        public double timeLimit;
+
+        public MonteCarloTreeSearch()
+        {
+            timeLimit = 2000;
+        }
+
+        //nodeWinScore = number of wins after the i-th move
+        //nodeVisit = number of simulations after the i-th move
+        //1.41 = exploration parameter(theoretically equal to √2)
+        //totalVisit = total number of simulations for the parent node
+        public double uctValue(int totalVisit, double nodeWinScore, int nodeVisit)
+        {
+            return ((double)nodeWinScore / (double)nodeVisit) +
+                1.41 * System.Math.Sqrt(System.Math.Log(totalVisit) / (double)(nodeVisit));
+        }
+
+        public bool endCondition()
+        {
+
+            /*   if (iterations < 200000)
+               {
+                   return true;
+               }
+
+               return false;
+               */
+            if (timer.ElapsedMilliseconds < timeLimit)
+            {
+                // Console.WriteLine("RESUMING---------------------------------");
+
+                return true;
+            }
+            else
+            {
+                //Console.WriteLine("TIME ENDED---------------------------------");
+                timer.Stop();
+                return false;
+            }
+        }
+
+
+        public Node selectNodeUCT(Node node)
+        {
+            int parentVisit = node.getState().getVisitCount();
+
+            var childs = node.getChilds();
+            var allChilds = node.getState().getAllPossibleMoves();
+
+
+            Node bestChild = null;
+            double bestScore = 0;
+
+
+            if (allChilds != null)
+                for (int i = 0; i < allChilds.Count; i++)
+                {
+                    if (childs.ContainsKey(allChilds[i].GetHashCode()) == false)
+                    {
+
+                        return null;
+                    }
+
+                    double tempS = uctValue(
+                        parentVisit,
+                        childs[allChilds[i].GetHashCode()].getState().getWinScore(),
+                        childs[allChilds[i].GetHashCode()].getState().getVisitCount());
+
+                    if (tempS > bestScore || i == 0)
+                    {
+                        bestChild = childs[allChilds[i].GetHashCode()];
+                        bestScore = tempS;
+                    }
+                }
+
+            return bestChild;
+        }
+
+        private Node selectChild(Node rootNode)
+        {
+            Node node = null;
+
+            node = selectNodeUCT(rootNode);
+
+            return node;
+        }
+
+        public Node selection(Node root)
+        {
+            if (root.getState().getVisitCount() == 0)
+                return root;
+
+            Node child = selectChild(root);
+
+            if (child == null)
+                return root;
+
+            return selection(child);
+        }
+
+        public int findBestMove(Board gamestate, int playerNo)
+        {
+
+            opponent = 3 - playerNo;
+            tree = new Tree();
+            Node rootNode = tree.getRoot();
+            rootNode.getState().setBoard(gamestate);
+            rootNode.getState().setPlayerNo(opponent);
+
+            // Console.WriteLine("ROOT PLAYERNO " + rootNode.getState().getPlayerNo());
+
+            iterations = 0;
+            timer.Reset();
+            timer.Start();
+            time = timer.ElapsedMilliseconds;
+            double time2 = timer.ElapsedTicks;
+            while (endCondition())
+            {
+
+                Node promisingNode = selection(rootNode);
+
+
+                Node newChild = expansion(promisingNode);
+
+
+                Node explorationNode = newChild;
+
+                int playoutResult = simulation(explorationNode);
+                backPropagation(explorationNode, playoutResult);
+
+                //Console.WriteLine("ELAPSED AFTER SIM :" + (timer.ElapsedTicks - time));
+                //time = timer.ElapsedTicks;
+
+                iterations++;
+
+
+            }
+            Console.WriteLine("Getting Best node");
+            Node winnerNode = rootNode.getMaxScoreChild();
+            Console.WriteLine("ELAPSED TIME :" + (timer.ElapsedMilliseconds - time2));
+            Console.WriteLine("--------------------------------------------------------------------");
+            // debugTree(tree.getRoot(),3);
+            long memory = GC.GetTotalMemory(true);
+            Console.WriteLine("--------------------------------------------------------------------");
+            Console.WriteLine("ELAPSED MEMORY :" + memory.ToString());
+
+            it++;
+            tree.setRoot(winnerNode);
+
+            if (winnerNode != null)
+                return winnerNode.GetHashCode();
+            else return -1;
+        }
+
+
+
+
+        public Node expansion(Node parent)
+        {
+            var possibleStates = parent.getState().getAllPossibleMoves();
+
+            if (possibleStates != null)
+                foreach (Move move in possibleStates)
+                {
+                    if (parent.getChilds().ContainsKey(move.GetHashCode()) == false)
+                    {
+                        if (parent.getState().getPlayerNo() == Board.P1)
+                        {
+                            int useless = 0;
+                        }
+                        tree.addChild(parent, move);
+
+                        return parent.getChilds()[move.GetHashCode()];
+                    }
+                }
+
+            return parent;
+            //    Console.WriteLine("EXPANDING " + node.getState().getPlayerNo()  + " CHILDS "+ node.getChilds().Count());
+        }
+
+        public int simulation(Node node)
+        {
+
+
+            Node tempNode = new Node(node);
+
+            State tempState = tempNode.getState();
+            int boardStatus = tempState.getBoard().checkStatus();
+
+            if (node.getState().getPlayerNo() == Board.P2 && boardStatus == opponent)
+            {
+                int useless = 0;
+            }
+
+            if (boardStatus == opponent)
+            {
+
+                tempNode.getParent().getState().setWinScore(int.MinValue);
+                return boardStatus;
+            }
+
+
+            //   Console.WriteLine("ELAPSED BEFORE SIM :" + (timer.ElapsedTicks - time));
+            // time = timer.ElapsedTicks;
+
+
+            while (boardStatus == Board.IN_PROGRESS)
+            {
+
+
+                tempState.togglePlayer();
+                //    time = timer.ElapsedTicks;
+                tempState.randomPlay();
+                // Console.WriteLine("ELAPSED AFTER random :" + (timer.ElapsedTicks - time));
+                //   time = timer.ElapsedTicks;
+                //  Console.WriteLine("---------------------------------------------------------------------------------------------------------------------------------------");
+                boardStatus = tempState.getBoard().checkStatus();// tempState.getBoard().debugBoard();
+
+
+            }
+
+            return boardStatus;
+        }
+
+        public void backPropagation(Node node, int playerNo)
+        {
+            Node tempNode = node;
+
+            while (tempNode != null)
+            {
+                tempNode.getState().incrementVisit();
+
+                if (tempNode.getState().getPlayerNo() == playerNo)
+                {
+                    tempNode.getState().addScore(WIN_SCORE);
+                }
+
+                if (playerNo == Board.DRAW)
+                {
+                    tempNode.getState().addScore(0.5);
+                }
+
+                tempNode = tempNode.getParent();
+            }
+        }
+
+
+        public void debugTree(Node tree, int depth)
+        {
+            Console.WriteLine("Debugging tree");
+            printNode(tree, depth);
+        }
+
+        private void printNode(Node node, int depth, int lvl = 0)
+        {
+            if (depth == 0) return;
+            bool terminal = true;
+
+            for (int i = 0; i < lvl * 25; i++) Console.Write(" ");
+            Console.WriteLine(" Node " + lvl + "|childs " + node.getChilds().Count + "|playerNo " + node.getState().getPlayerNo() + "|visits " + node.getState().getVisitCount() + "|winScore " + node.getState().getWinScore());
+            node.getState().getBoard().debugBoard(lvl * 25 + 25);
+
+            foreach (Node child in node.getChilds().Values)
+            {
+                int lvll = lvl + 1;
+                printNode(child, depth - 1, lvl + 1);
+
+                terminal = false;
+            }
+
+
+        }
+
+    }
