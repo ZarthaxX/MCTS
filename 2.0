@@ -1,0 +1,680 @@
+
+    public class Board
+    {
+        public const int IN_PROGRESS = -1;
+        public const int DRAW = 0;
+        public const int P1 = 1;
+        public const int P2 = 2;
+
+        public const int MAX_MOVES = 7;
+        public const int W_BOARD_SIZE = 7;
+        public const int H_BOARD_SIZE = 6;
+        public int BLANK = 10000;
+
+        public int[] columns;
+        public ulong[] grids;
+
+        public int lastMove;
+        public int lastP = Board.P1;
+
+        private int hashValue;
+
+        public int possibleMoves;
+
+        public Board()
+        {
+            hashValue = -1;
+
+            columns = new int[W_BOARD_SIZE];
+
+            grids = new ulong[2];
+
+            resetBoard();
+
+            lastMove = 0;
+            lastP = -1;
+
+            possibleMoves = 0;
+        }
+
+        public Board(Board b)
+        {
+            hashValue = b.GetHashCode();
+
+            columns = new int[W_BOARD_SIZE];
+
+            grids = new ulong[2];
+
+
+
+            for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+            {
+                columns[ii] = b.columns[ii];
+            }
+
+            for (int i = 0; i < 2; ++i)
+            {
+                grids[i] = b.grids[i];
+            }
+
+            lastMove = b.lastP;
+            lastP = b.lastP;
+
+            possibleMoves = b.possibleMoves;
+
+        }
+
+        public void resetBoard()
+        {
+            for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+            {
+                columns[ii] = 0;
+            }
+
+            for (int i = 0; i < 2; ++i)
+            {
+                grids[i] = 0;
+            }
+
+        }
+
+        public void performMove(int player, int move)
+        {
+            if (columns[move] != H_BOARD_SIZE)
+            {
+                int index = player == Board.P1 ? 0 : 1;
+
+                grids[index] = grids[index] | returnPosition(move);
+
+                columns[move]++;
+
+            }
+
+            lastMove = move;
+            lastP = player;
+
+            hashValue = move.GetHashCode();
+
+        }
+
+        public int getOpponent(int player)
+        {
+            return 3 - player;
+        }
+
+        public ulong returnPosition(int x)
+        {
+            return (1UL << (columns[x] + x * W_BOARD_SIZE));
+        }
+
+        public void undoMove(int player, int move)
+        {
+            int index = player == Board.P1 ? 0 : 1;
+            columns[move]--;
+            grids[index] = grids[index] & ~returnPosition(move);
+
+        }
+
+        public bool checkFull()
+        {
+            return (grids[0] | grids[1]) == 0xFDFBF7EFDFBF;
+        }
+
+        public int checkStatus()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                ulong board = grids[i];
+
+                ulong diagonalDown = board & (board << 6);
+                ulong horizontal = board & (board << 7);
+                ulong diagonalUp = board & (board << 8);
+                ulong vertical = board & (board << 1);
+
+                if (0 != (
+                            (diagonalDown & (diagonalDown << 12)) |
+                            (horizontal & (horizontal << 14)) |
+                            (diagonalUp & (diagonalUp << 16)) |
+                            (vertical & (vertical << 2))
+                    )) return i + 1;
+
+
+            }
+
+            if (checkFull()) return Board.DRAW;
+
+            return Board.IN_PROGRESS;
+
+        }
+
+        public int[] getPossibleMoves()
+        {
+            int[]moves = new int[W_BOARD_SIZE];
+            int index = 0;
+            for (int i = 0; i < W_BOARD_SIZE; ++i)
+            {
+
+                if (columns[i] != H_BOARD_SIZE)
+                {
+                    moves[index] = i;
+                    index++;
+                }
+
+            }
+
+            if(index != W_BOARD_SIZE)
+            {
+                moves[index] = -1;
+            }
+
+            possibleMoves = index;
+
+            return moves;
+        }
+
+        public void debugColumns()
+        {
+            for (int i = 0; i < W_BOARD_SIZE; ++i)
+            {
+                Console.WriteLine("COLUMN AMOUNT " + columns[i]);
+            }
+
+        }
+
+        public void debugBoard(int extraSpace = 0)
+        {
+            //  Console.WriteLine("Debugging Board-------------------------------------------------------------------");
+
+            for (int i = H_BOARD_SIZE - 1; i > -1; i--)
+            {
+
+
+                for (int a = 0; a < extraSpace; a++) Console.Write(" ");
+                Console.Write("|");
+                for (int ii = 0; ii < W_BOARD_SIZE; ++ii)
+                {
+                    char a;
+                    if ((grids[0] & (1UL << (i + ii * W_BOARD_SIZE))) != 0)
+                    {
+                        a = 'O';
+                        Console.Write(a + "|");
+
+                    }
+                    else if ((grids[1] & (1UL << (i + ii * W_BOARD_SIZE))) != 0)
+                    {
+                        a = 'X';
+                        Console.Write(a + "|");
+
+                    }
+                    else Console.Write(" |");
+
+
+                }
+                Console.WriteLine();
+            }
+        }
+
+        public int getWinningMove(int player, int[] moves = null)
+        {
+            int selected = -1;
+
+            if (moves == null)
+                moves = getPossibleMoves();
+
+
+
+            foreach (int move in moves)
+            {
+                if (move == -1) break;
+
+                performMove(player, move);
+
+                int status = checkStatus();
+
+
+                if (status == player)
+                {
+                    undoMove(player, move);
+                    selected = move;
+                    break;
+                }
+
+                undoMove(player, move);
+
+            }
+
+            return selected;
+        }
+
+        public int getBlockingMove(int player, int[] moves = null)
+        {
+            int selected = -1;
+
+            if (moves == null)
+                moves = getPossibleMoves();
+
+
+            player = 3 - player;
+
+            foreach (int move in moves)
+            {
+                if (move == -1) break;
+
+                performMove(player, move);
+
+                int status = checkStatus();
+
+                if (status == player)
+                {
+                    undoMove(player, move);
+
+                    selected = move;
+                    break;
+                }
+
+                undoMove(player, move);
+
+            }
+
+            return selected;
+        }
+
+    }
+    public class Node
+    {
+        private Board gameState;
+        private int player;
+        private int visits;
+        private double score;
+        private Node parent;
+        private Node[] childs;
+        private int childsCount;
+        private int[] possibleMoves;
+        private int maxChilds;
+
+        public Node()
+        {
+            player = -1;
+            visits = 0;
+            score = 0;
+            parent = null;
+            childs = new Node[Board.MAX_MOVES];
+            childsCount = 0;
+            maxChilds = -1;
+        }
+
+        public Node(Board gameState_)
+        {
+            gameState = gameState_ == null ? new Board() : new Board(gameState_);
+
+            player = -1;
+            visits = 0;
+            score = 0;
+            parent = null;
+            childs = new Node[Board.MAX_MOVES];
+            childsCount = 0;
+            maxChilds = -1;
+
+        }
+
+        public Node(Node node)
+        {
+            gameState = node.Gamestate == null ? new Board() : new Board(node.Gamestate);
+
+            player = node.Player;
+
+            score = node.Score;
+
+            maxChilds = node.MaxChilds;
+
+            parent = node.Parent;
+
+            childs = new Node[Board.MAX_MOVES];
+
+            for (int i = 0; i < node.ChildsCount; i++)
+            {
+                childs[i] = new Node(node.Childs[i]);
+            }
+        }
+
+        public void addChild(int move)
+        {
+            childs[childsCount] = new Node(this.Gamestate);
+            childs[childsCount].Player = this.Player;
+            childs[childsCount].togglePlayer();
+            childs[childsCount].Parent = this;
+            childs[childsCount].gameState.performMove(childs[childsCount].player, move);
+
+            childsCount++;
+        }
+
+        public void togglePlayer()
+        {
+            player = 3 - player;
+        }
+
+        public Board Gamestate
+        {
+            get { return gameState; }
+            set { gameState = new Board(value); }
+        }
+
+        public int Player
+        {
+            get { return player; }
+            set { player = value; }
+        }
+
+        public int ChildsCount
+        {
+            get { return childsCount; }
+            set { childsCount = value; }
+        }
+
+        public int Visits
+        {
+            get { return visits; }
+            set { visits = value; }
+        }
+
+        public int MaxChilds
+        {
+            get { return maxChilds; }
+            set { maxChilds = value; }
+        }
+
+        public double Score
+        {
+            get { return score; }
+            set { score = value; }
+        }
+
+        public Node Parent
+        {
+            get { return parent; }
+            set { parent = value; }
+        }
+
+        public int[] PossibleMoves
+        {
+            get { return possibleMoves; }
+            set { possibleMoves = value; }
+        }
+
+        public Node[] Childs
+        {
+            get { return childs; }
+            set { childs = value; }
+        }
+    }
+
+    public class MonteCarloTreeSearch
+    {
+
+        int iterations;
+        Random rnd;
+        Stopwatch timer;
+        public bool endCondition()
+        {
+            // return timer.ElapsedMilliseconds < 5000 ? true : false;
+            return iterations == 25000 ? false : true;
+        }
+
+        public int findBestMove(Board gameState, int player)
+        {
+            rnd = new Random();
+            timer = new Stopwatch();
+
+            iterations = 0;
+            Node root = new Node(gameState);
+            root.Player = player;
+
+            timer.Restart();
+
+
+            while (endCondition())
+            {
+                Node selectedNode = selection(root);
+
+                Node child = expansion(selectedNode);
+
+                int result = simulation(child);
+
+                backPropagation(child, result);
+              //  printNode(root, 2);
+
+                iterations++;
+
+            }
+
+
+            /*          Console.WriteLine("ELAPSED TIME :" + timer.ElapsedMilliseconds);
+                       Console.WriteLine("--------------------------------------------------------------------");
+                       Console.WriteLine("ELAPSED ITERATIONS :" + iterations);
+
+                       //printNode(root,2);
+                       long memory = GC.GetTotalMemory(true);
+                       Console.WriteLine("--------------------------------------------------------------------");
+                       Console.WriteLine("ELAPSED MEMORY :" + memory.ToString());*/
+
+            int bestMove = returnMostVisitsChild(root);
+
+
+            return bestMove;
+        }
+
+        private int returnMostVisitsChild(Node root)
+        {
+            int bestIndex = 0;
+            int bestVisits = 0;
+
+            for (int i = 0; i < root.ChildsCount; i++)
+            {
+                if (root.Childs[i].Visits > bestVisits)
+                {
+                    bestVisits = root.Childs[i].Visits;
+                    bestIndex = i;
+                }
+            }
+
+           // root = new Node(root.Childs[bestIndex]);
+
+            //printNode(root,2);
+
+            return root.PossibleMoves[bestIndex];
+        }
+
+        private Node selection(Node root)
+        {
+
+            if (root.ChildsCount == 0)
+            {
+                return root;
+            }
+
+            if (root.MaxChilds != -1)
+            {
+                if (root.MaxChilds != root.ChildsCount)
+                {
+                    return root;
+                }
+            }
+
+            double bestScore = uctValue(root.Childs[0].Parent.Visits, root.Childs[0].Score, root.Childs[0].Visits);
+            int bestIndex = 0;
+
+            for (int i = 1; i < root.ChildsCount; i++)
+            {
+                double tempScore = uctValue(root.Childs[i].Parent.Visits, root.Childs[i].Score, root.Childs[i].Visits);
+
+                if (tempScore > bestScore)
+                {
+                    bestIndex = i;
+                }
+            }
+
+            return selection(root.Childs[bestIndex]);
+        }
+
+        private Node expansion(Node node)
+        {
+            if (node.Gamestate.checkStatus() != Board.IN_PROGRESS)
+            {
+                return node;
+            }
+
+            if (node.MaxChilds == -1)
+            {
+                int[] moves = node.Gamestate.getPossibleMoves();
+                int wtf = 0;
+
+                int winningMove = node.Gamestate.getWinningMove(node.Gamestate.getOpponent(node.Player), moves);
+
+                if (winningMove != -1)
+                {
+
+                    node.addChild(winningMove);
+                    node.MaxChilds = 1;
+                    node.ChildsCount = 1;
+                    node.PossibleMoves = new int[1];
+                    node.PossibleMoves[0] = winningMove;
+
+                    return node.Childs[0];
+                }
+
+                int blockingMove = node.Gamestate.getBlockingMove(node.Gamestate.getOpponent(node.Player), moves);
+
+                if (blockingMove != -1)
+                {
+
+                    node.addChild(blockingMove);
+                    node.MaxChilds = 1;
+                    node.ChildsCount = 1;
+                    node.PossibleMoves = new int[1];
+                    node.PossibleMoves[0] = blockingMove;
+                    return node.Childs[0];
+                }
+
+
+
+
+                node.PossibleMoves =  new int[node.Gamestate.possibleMoves];
+
+                node.MaxChilds = node.Gamestate.possibleMoves;
+
+                for (int i = 0; i < node.MaxChilds; i++)
+                {
+                    node.PossibleMoves[i] = moves[i];                   
+                }
+            }
+
+            /* int limit = node.MaxChilds - node.ChildsCount;
+             int rndIndex = rnd.Next(limit);
+             node.addChild(node.PossibleMoves[rndIndex]);
+             node.PossibleMoves[rndIndex] = node.PossibleMoves[limit - 1];*/
+
+            node.addChild(node.PossibleMoves[node.ChildsCount]);
+
+            return node.Childs[node.ChildsCount - 1];
+        }
+
+        private int simulation(Node node)
+        {
+
+            int result = node.Gamestate.checkStatus();
+
+            if (result != Board.IN_PROGRESS)
+            {
+                if (result != Board.DRAW)
+                    node.Parent.Score = int.MinValue;
+                return result;
+            }
+
+            Board boardCopy = new Board(node.Gamestate);
+            int player = node.Player;
+
+            while (boardCopy.checkStatus() == Board.IN_PROGRESS)
+            {
+                player = 3 - player;
+
+                int[] availableMoves = boardCopy.getPossibleMoves();
+
+                int move = boardCopy.getWinningMove(player,availableMoves);
+
+                if (move != -1)
+                {
+                    boardCopy.performMove(player, move);
+                    continue;
+                }
+
+                move = boardCopy.getBlockingMove(player,availableMoves);
+
+                if (move != -1)
+                {
+                    boardCopy.performMove(player, move);
+                    continue;
+                }
+
+                boardCopy.performMove(player, availableMoves[rnd.Next(boardCopy.possibleMoves)]);
+               // boardCopy.debugBoard();
+            }
+
+            //boardCopy.debugBoard();
+
+            return boardCopy.checkStatus();
+        }
+
+        private void backPropagation(Node node, int score)
+        {
+            if (node.Score != int.MinValue)
+            {
+                if (node.Player == score)
+                {
+                    node.Score += score;
+                }
+                else if (score == Board.DRAW)
+                {
+                    node.Score += 0.5;
+                }
+            }
+
+
+            node.Visits++;
+
+            if (node.Parent == null) return;
+
+            backPropagation(node.Parent, score);
+
+        }
+
+        public double uctValue(int totalVisit, double nodeWinScore, int nodeVisit)
+        {
+            return ((double)nodeWinScore / (double)nodeVisit) +
+                1.41 * Math.Sqrt(Math.Log(totalVisit) / (double)(nodeVisit));
+        }
+
+
+        private void printNode(Node node, int depth, int lvl = 0)
+        {
+
+
+
+            for (int i = 0; i < lvl * 25; i++) Console.Write(" ");
+            Console.WriteLine(" Node " + lvl + "|childs " + node.ChildsCount + "|playerNo " + node.Player + "|visits " + node.Visits + "|winScore " + node.Score);
+
+            if (depth == 0)
+            {
+                node.Gamestate.debugBoard(lvl * 25 + 25);
+                return;
+            }
+
+            for (int i = 0; i < node.ChildsCount; i++)
+            {
+                int lvll = lvl + 1;
+                printNode(node.Childs[i], depth - 1, lvl + 1);
+
+            }
+
+            if (node.ChildsCount == 0) node.Gamestate.debugBoard(lvl * 25 + 25);
+        }
+    
